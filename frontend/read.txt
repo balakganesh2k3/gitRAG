@@ -1,0 +1,79 @@
+Product Requirement Document (PRD)
+1. Introduction
+1.1 Product Overview
+The application allows an admin user to input a GitHub repository URL and a Personal Access Token (PAT) for private repositories. The system retrieves repository data, processes it using a Retrieval-Augmented Generation (RAG) pipeline, and provides a chatbot interface.
+
+This chatbot can be embedded into external websites, but only authorized end-users can query repository-specific information via the chatbot. The repository content and RAG system are exclusively accessible to the admin user.
+
+1.2 Goals & Objectives
+Enable an admin to integrate GitHub repositories securely.
+Retrieve, process, and store repository data in a secure RAG pipeline.
+Provide a chatbot that allows end-users to query only approved information.
+Restrict repository access and RAG control to the admin.
+Ensure data security and prevent unauthorized repository access.
+1.3 Target Audience
+Admin: The only user with access to repository data, RAG, and chatbot management.
+End Users: Users who can interact with the chatbot but cannot access the raw repository data or RAG system.
+2. Functional Requirements
+2.1 Admin Panel
+Repository Management:
+
+Admin enters a GitHub repository URL and PAT token to fetch repo data.
+System retrieves repository metadata, README, docs, issues, and code.
+Admin can update/delete repositories from the chatbot index.
+RAG Access Control:
+
+Only the admin can view, modify, or delete repository data in the RAG system.
+Admin can define chatbot access permissions for end-users.
+Chatbot Integration:
+
+Admin receives an embed code for adding the chatbot to external websites.
+Admin controls which parts of the repository data are exposed via the chatbot.
+2.2 Data Retrieval & Processing
+Fetch repository metadata, documentation, issues, and relevant code.
+Preprocess data: clean, tokenize, and convert into embeddings.
+Store processed data in a vector database for efficient retrieval.
+2.3 RAG & Chatbot
+Convert repository content into embeddings for contextual retrieval.
+Integrate with LLM (e.g., OpenAI, Gemini, Llama) for chatbot responses.
+Restrict chatbot responses to only admin-approved repository content.
+Prevent unauthorized access to raw repository data via chatbot queries.
+Allow real-time repository data updates in the RAG system.
+2.4 Security & Access Control
+Admin-only access:
+
+Only the admin can manage repositories and configure chatbot behavior.
+Repository data and RAG pipeline are strictly restricted to the admin.
+End-users can only query the chatbot but cannot directly access repository data.
+Authentication & Encryption:
+
+Securely store PAT tokens using encryption or avoid storing them permanently.
+Implement admin authentication via JWT, OAuth, or Nhost auth.
+Restrict chatbot queries to prevent exposure of sensitive code or data.
+3. Non-Functional Requirements
+Performance: Fast response times for chatbot queries.
+
+Scalability: Support multiple repositories while maintaining security.
+
+Security:
+
+RAG access is admin-exclusive—end-users cannot see repository data directly.
+PAT tokens and API keys are encrypted and not exposed in logs or responses.
+Chatbot queries are filtered to prevent data leaks.
+User Experience:
+
+Simple admin dashboard for repo integration and chatbot management.
+Intuitive chatbot UI for seamless user interactions.
+4. Tech Stack Suggestions
+Backend: FastAPI / Flask (for API logic)
+Database: Nhost / Supabase (for storing repository metadata)
+Vector Database: Weaviate / Pinecone / ChromaDB
+LLM Integration: OpenAI, Llama, Gemini (via OpenRouter)
+Frontend: React / Next.js (for chatbot UI)
+Authentication: Nhost Auth (JWT-based admin authentication)
+Workflow Automation: n8n (for repo sync & chatbot updates)
+Deployment: Vercel / AWS / DigitalOcean
+5. Future Enhancements
+Multi-repo support: Allow the chatbot to handle multiple repositories securely.
+Role-based access: Grant chatbot query permissions to specific users.
+Automated repo sync: Periodically update RAG when repository data changes.
