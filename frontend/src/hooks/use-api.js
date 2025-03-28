@@ -1,23 +1,18 @@
 // src/hooks/use-api.js
 
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import axios from 'axios';
 
 export const useApi = () => {
-  const [apiClient, setApiClient] = useState(null);
-
-  useEffect(() => {
-    // Initialize Axios client with base URL from environment variables
-    const baseURL = process.env.REACT_APP_API_BASE_URL || '/'; // Default to root if not set
-    const client = axios.create({
+  const apiClient = useMemo(() => {
+    const baseURL = import.meta.env.VITE_API_URL || '/';
+    return axios.create({
       baseURL: baseURL,
-      timeout: 10000, // Optional timeout
+      timeout: 10000,
       headers: {
         'Content-Type': 'application/json',
       },
     });
-
-    setApiClient(client);
   }, []);
 
   return apiClient;
