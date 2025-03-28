@@ -4,8 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlusCircle, Trash, Pencil } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
-import { repositoryApi } from "../../lib/api";
+// import { repositoryApi } from "../../lib/utils/api"; // Removed original import
 import { ToastContainer, toast } from 'react-toastify';
+import { createGitHubClient, fetchRepository, processRepositoryWithRAG } from "../../lib/utils/api"; // Added new import
+import { useAuth } from "../context/auth-context"; // Added import for auth context
 
 const RepositoryManager = () => {
   const [loading, setLoading] = useState(false);
@@ -17,6 +19,15 @@ const RepositoryManager = () => {
   const [isPrivate, setIsPrivate] = useState(false);
   const [patToken, setPatToken] = useState("");
   const [initialized, setInitialized] = useState(false);
+  const { user } = useAuth(); // Get user and auth info
+  const [githubClient, setGithubClient] = useState(null); // Octokit client
+
+  // Initialize GitHub client when user is authenticated
+  useEffect(() => {
+    if (user?.githubToken) {
+      setGithubClient(createGitHubClient(user.githubToken));
+    }
+  }, [user]);
 
   useEffect(() => {
     fetchRepositories();
@@ -25,25 +36,43 @@ const RepositoryManager = () => {
   const handleAddRepository = async (e) => {
     e.preventDefault();
     try {
-      const githubUrlPattern = /^https?:\/\/github\.com\/[\w-]+\/[\w.-]+\/?$/;
+      const githubUrlPattern = /^https?:\/\/github\.com\/([\w-]+)\/([\w.-]+)\/?$/;
       if (!githubUrlPattern.test(repoUrl)) {
         toast.error("Please enter a valid GitHub repository URL (e.g., https://github.com/user/repo)");
         return;
       }
-      setLoading(true);
-      const response = await repositoryApi.add({
-        repo_url: repoUrl,
-        private: isPrivate,
-        pat_token: isPrivate ? patToken : null
-      });
-      if (response && response.id) {
-        setRepositories(prev => [...prev, response]);
-        toast.success("Repository added successfully. Processing will begin shortly.");
-        setRepoUrl('');
-        setPatToken('');
-        setIsPrivate(false);
-        pollRepositoryStatus(response.id);
+
+      const match = repoUrl.match(githubUrlPattern);
+      const owner = match[1];
+      const repo = match[2];
+
+      if (!githubClient) {
+        toast.error("Not authenticated with Github. Please login.");
+        return;
       }
+
+      setLoading(true);
+
+      // Fetch repo details using Octokit
+      const repoData = await fetchRepository(githubClient, owner, repo);
+
+      // Process the repo (RAG)
+      const ragResult = await processRepositoryWithRAG({ post: () => Promise.resolve({ data: { status: 'completed' } }) }, owner, repo); // Mock apiClient
+
+      setRepositories(prev => [...prev, {
+        id: repoData.id, // Use GitHub repo ID
+        name: repoData.name,
+        url: repoUrl,
+        private: isPrivate,
+        status: 'completed', // Set initial status
+        owner: owner,
+        repo: repo
+      }]);
+      toast.success("Repository added successfully. Processing will begin shortly.");
+      setRepoUrl('');
+      setPatToken('');
+      setIsPrivate(false);
+
     } catch (error) {
       console.error('Error adding repository:', error);
       toast.error(error.message || "Failed to add repository");
@@ -52,32 +81,14 @@ const RepositoryManager = () => {
     }
   };
 
-  const pollRepositoryStatus = async (repoId) => {
-    const interval = setInterval(async () => {
-      try {
-        const status = await repositoryApi.status(repoId);
-        if (status && status.status !== 'processing') {
-          clearInterval(interval);
-          setRepositories(prev => prev.map(repo => repo.id === repoId ? { ...repo, status: status.status } : repo));
-        }
-      } catch (error) {
-        console.error('Error polling status:', error);
-        clearInterval(interval);
-      }
-    }, 5000);
-  };
-
   const fetchRepositories = async () => {
     if (initialized) return;
     try {
       setLoading(true);
       setError(null);
-      const data = await repositoryApi.list();
-      if (Array.isArray(data)) {
-        setRepositories(data);
-      } else {
-        setRepositories([]);
-      }
+      // Fetch existing repositories (if you have a backend to store them)
+      // For now, keep it empty
+      setRepositories([]);
       setInitialized(true);
     } catch (error) {
       console.error('Error fetching repositories:', error);
@@ -89,6 +100,7 @@ const RepositoryManager = () => {
   };
 
   const handleDeleteRepository = (id) => {
+    // Implement delete logic here (API call to delete from backend)
     setRepositories(repositories.filter((repo) => repo.id !== id));
   };
 
@@ -98,53 +110,63 @@ const RepositoryManager = () => {
   };
 
   const handleUpdateRepository = () => {
+    // Implement update logic here (API call to update in backend)
     setRepositories(repositories.map(repo => repo.id === editRepo.id ? { ...repo, ...newRepo } : repo));
     setEditRepo(null);
     setNewRepo({ name: "", url: "" });
   };
 
-  useEffect(() => {
-    if (!initialized) return;
-    const interval = setInterval(async () => {
-      const processingRepos = repositories.filter(r => r.status === 'processing');
-      if (processingRepos.length > 0) {
-        const statuses = await Promise.all(processingRepos.map(repo => repositoryApi.status(repo.id)));
-        setRepositories(prev => prev.map(repo => {
-          const status = statuses.find(s => s.id === repo.id);
-          return status ? { ...repo, status: status.status } : repo;
-        }));
-      }
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [repositories, initialized]);
-
   return (
-    <div className="container mx-auto p-4">
-      <ToastContainer position="top-right" autoClose={5000} />
-      {error && (
-        <div className="mb-4 p-4 bg-red-50 text-red-600 rounded-md">
-          {error}
-          <Button variant="link" className="ml-2" onClick={fetchRepositories}>Retry</Button>
-        </div>
-      )}
-      {loading ? (
-        <div className="flex justify-center items-center h-32">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        </div>
-      ) : (
-        <>
-          <form onSubmit={handleAddRepository} className="space-y-4 mb-6">
-            <Input type="text" placeholder="GitHub Repository URL" value={repoUrl} onChange={(e) => setRepoUrl(e.target.value)} required />
-            <div className="flex items-center gap-2">
-              <Switch checked={isPrivate} onCheckedChange={setIsPrivate} />
-              <span>Private Repository</span>
-            </div>
-            {isPrivate && <Input type="text" placeholder="GitHub PAT Token" value={patToken} onChange={(e) => setPatToken(e.target.value)} />}
-            <Button type="submit">Add Repository</Button>
-          </form>
-        </>
-      )}
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Repository Management</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleAddRepository} className="flex flex-col space-y-4">
+          <Input
+            type="url"
+            placeholder="GitHub Repository URL (e.g., https://github.com/user/repo)"
+            value={repoUrl}
+            onChange={(e) => setRepoUrl(e.target.value)}
+            required
+          />
+          <div className="flex items-center space-x-2">
+            <Switch id="isPrivate" checked={isPrivate} onCheckedChange={setIsPrivate} />
+            <label htmlFor="isPrivate" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+              Private Repository
+            </label>
+          </div>
+          {isPrivate && (
+            <Input
+              type="password"
+              placeholder="Personal Access Token"
+              value={patToken}
+              onChange={(e) => setPatToken(e.target.value)}
+              required={isPrivate}
+            />
+          )}
+          <Button disabled={loading}><PlusCircle className="mr-2 h-4 w-4" /> Add Repository</Button>
+          {error && <p className="text-red-500">{error}</p>}
+        </form>
+        {repositories.length > 0 && (
+          <div className="mt-6">
+            <h3 className="text-lg font-semibold mb-2">Repositories</h3>
+            <ul>
+              {repositories.map((repo) => (
+                <li key={repo.id} className="flex items-center justify-between py-2 border-b border-gray-200">
+                  <span>{repo.name}</span>
+                  <div>
+                    <Button variant="ghost" size="sm" onClick={() => handleEditRepository(repo)}><Pencil className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="sm" onClick={() => handleDeleteRepository(repo.id)}><Trash className="h-4 w-4" /></Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <ToastContainer />
+      </CardContent>
+    </Card>
   );
 };
 

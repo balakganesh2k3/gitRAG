@@ -31,6 +31,7 @@ CORS_MAX_AGE = 600  # 10 minutes
 # API Settings
 API_V1_PREFIX = "/api/v1"
 PROJECT_NAME = "GitRAG API"
+RATE_LIMIT = 100
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 
 # Database and Service Configurations
@@ -39,3 +40,6 @@ REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL is not set in environment variables")
+
+SUPABASE_URL="https://roivrfeinujkklcdjesd.supabase.co"
+SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJvaXZyZmVpbnVqa2tsY2RqZXNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAwNjA5MTgsImV4cCI6MjA1NTYzNjkxOH0.VGI9pobo3RpIM-wcWbBGNeIUQND-F4eFA_IdKj_q4e0"

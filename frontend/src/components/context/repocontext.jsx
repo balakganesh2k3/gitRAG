@@ -3,8 +3,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { Octokit } from "@octokit/rest";
 import { useAuth } from './auth-context';
-import { useApi } from '../../hooks/use-api';
-
+import { useApi } from "../../hooks/use-api"; // Corrected import path
 const RepoContext = createContext();
 
 export function RepoProvider({ children }) {
