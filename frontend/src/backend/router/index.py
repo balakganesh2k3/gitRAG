@@ -1,13 +1,8 @@
+# src/backend/router/index.py
 from fastapi import APIRouter
+from . import download, dynamic, github
 
 router = APIRouter()
-
-@router.get("/")
-async def index():
-    """
-    Returns a JSON response instead of rendering a Jinja template.
-    """
-    return {
-        "message": "Welcome to the FastAPI server!",
-        "title": "Home",
-    }
+router.include_router(download.router)
+router.include_router(dynamic.router)
+router.include_router(github.router)

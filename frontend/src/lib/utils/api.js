@@ -1,37 +1,64 @@
-const API_BASE_URL = "http://localhost:8000"; // FastAPI backend URL
+// src/lib/github-api.js
+import { Octokit } from "@octokit/rest";
 
-// Add a new repository
-export const addRepository = async (repoUrl, isPrivate, patToken) => {
-  const response = await fetch(`${API_BASE_URL}/repositories/add`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      repo_url: repoUrl,
-      private: isPrivate,
-      pat_token: isPrivate ? patToken : null,
-    }),
+// Initialize Octokit with authentication
+export const createGitHubClient = (token) => {
+  return new Octokit({
+    auth: token,
+    userAgent: 'GitRAG App v1.0',
   });
-  return response.json();
 };
 
-// Fetch all repositories
-export const getRepositories = async () => {
-  const response = await fetch(`${API_BASE_URL}/repositories`);
-  return response.json();
+// Repository operations
+export const fetchRepository = async (client, owner, repo) => {
+  try {
+    const response = await client.repos.get({
+      owner,
+      repo,
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching repository:", error);
+    throw error;
+  }
 };
 
-// Delete a repository
-export const deleteRepository = async (repoId) => {
-  await fetch(`${API_BASE_URL}/repositories/${repoId}`, { method: "DELETE" });
+// File content operations
+export const fetchFileContent = async (client, owner, repo, path, ref = 'main') => {
+  try {
+    const response = await client.repos.getContent({
+      owner,
+      repo,
+      path,
+      ref,
+    });
+    
+    // GitHub API returns content as Base64 encoded
+    const content = Buffer.from(response.data.content, 'base64').toString();
+    return content;
+  } catch (error) {
+    console.error("Error fetching file content:", error);
+    throw error;
+  }
+};
+// src/lib/github-api.js
+// Add this function to the existing file
+
+// Process repository through RAG pipeline
+export const processRepositoryWithRAG = async (apiClient, owner, repo, branch = 'main', filePaths = null) => {
+  try {
+    const response = await apiClient.post('/api/github/process', {
+      owner,
+      repo,
+      branch,
+      file_paths: filePaths
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error processing repository:", error);
+    throw error;
+  }
 };
 
-// Start indexing a repository
-export const indexRepository = async (repoId) => {
-  await fetch(`${API_BASE_URL}/repositories/${repoId}/index`, { method: "POST" });
-};
 
-// Get repository indexing status
-export const getRepositoryStatus = async (repoId) => {
-  const response = await fetch(`${API_BASE_URL}/repositories/${repoId}/status`);
-  return response.json();
-};
+// Additional GitHub API operations as needed

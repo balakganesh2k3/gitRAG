@@ -1,104 +1,86 @@
-"use client"
+// src/components/context/repocontext.jsx
 
-import { createContext, useContext, useState } from "react"
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import { Octokit } from "@octokit/rest";
+import { useAuth } from './auth-context';
+import { useApi } from '../../hooks/use-api';
 
-// Create the repository context
-const RepoContext = createContext(undefined)
+const RepoContext = createContext();
 
 export function RepoProvider({ children }) {
-  const [repositories, setRepositories] = useState([
-    {
-      id: "1",
-      url: "https://github.com/shadcn/ui",
-      name: "shadcn/ui",
-      description: "Beautifully designed components built with Radix UI and Tailwind CSS.",
-      status: "ready",
-      addedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-      isPublic: true,
-      exposedToChat: true,
-    },
-  ])
+  const [repositories, setRepositories] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const { user } = useAuth();
+  const apiClient = useApi();
+  const [githubClient, setGithubClient] = useState(null);
 
-  const addRepository = async (url, pat) => {
-    // Mock API call to GitHub
-    const isPrivate = !!pat
-
-    // Simulate processing delay
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-
-    // Extract repo name from URL
-    const urlParts = url.split("/")
-    const repoName = `${urlParts[urlParts.length - 2] || ""}/${urlParts[urlParts.length - 1] || ""}`
-
-    const newRepo = {
-      id: Date.now().toString(),
-      url,
-      name: repoName,
-      description: "Repository description will appear here after processing",
-      status: "processing",
-      addedAt: new Date(),
-      isPublic: !isPrivate,
-      exposedToChat: true,
+  // Initialize Octokit client when user is authenticated
+  useEffect(() => {
+    if (user?.githubToken) {
+      setGithubClient(new Octokit({
+        auth: user.githubToken,
+        userAgent: 'GitRAG App v1.0',
+      }));
     }
+  }, [user]);
 
-    setRepositories((prev) => [...prev, newRepo])
+  const addRepository = async (owner, repo) => {
+    if (!githubClient) return;
 
-    // Simulate processing completion
-    setTimeout(() => {
-      setRepositories((prev) =>
-        prev.map((repo) =>
-          repo.id === newRepo.id
-            ? {
-                ...repo,
-                status: "ready",
-                description: `This is a mock description for ${repoName}. In a real implementation, this would be fetched from the GitHub API.`,
-              }
-            : repo,
-        ),
-      )
-    }, 3000)
-  }
+    setLoading(true);
+    try {
+      // Fetch repository data using Octokit
+      const response = await githubClient.repos.get({ owner, repo });
+      const repoData = response.data;
 
-  const updateRepository = (id, updates) => {
-    setRepositories((prev) => prev.map((repo) => (repo.id === id ? { ...repo, ...updates } : repo)))
-  }
+      // Update state with repository data
+      setRepositories(prev => [...prev, repoData]);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const deleteRepository = (id) => {
-    setRepositories((prev) => prev.filter((repo) => repo.id !== id))
-  }
+  const processRepository = async (owner, repo, branch = 'main', filePaths = null) => {
+    setLoading(true);
+    try {
+      // Send repository processing request to backend
+      const response = await apiClient.post('/api/github/process', {
+        owner,
+        repo,
+        branch,
+        file_paths: filePaths,
+      });
 
-  const getEmbedCode = () => {
-    return `<script>
-(function(w,d,s,o,f,js,fjs){
-  w['GitHub-RAG-Widget']=o;w[o]=w[o]||function(){(w[o].q=w[o].q||[]).push(arguments)};
-  js=d.createElement(s),fjs=d.getElementsByTagName(s)[0];
-  js.id=o;js.src=f;js.async=1;fjs.parentNode.insertBefore(js,fjs);
-}(window,document,'script','githubRag','https://your-domain.com/widget.js'));
-githubRag('init', { chatId: 'github-rag-chat' });
-</script>
-<div id="github-rag-chat"></div>`
-  }
+      // Update state with processed repository data
+      setRepositories(prev => prev.map(r =>
+        r.full_name === `${owner}/${repo}`
+          ? { ...r, processed: true, processingResult: response.data }
+          : r
+      ));
+      
+      return response.data;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <RepoContext.Provider
-      value={{
-        repositories,
-        addRepository,
-        updateRepository,
-        deleteRepository,
-        getEmbedCode,
-      }}
-    >
+    <RepoContext.Provider value={{
+      repositories,
+      loading,
+      error,
+      addRepository,
+      processRepository,
+    }}>
       {children}
     </RepoContext.Provider>
-  )
+  );
 }
 
-export function useRepoContext() {
-  const context = useContext(RepoContext)
-  if (context === undefined) {
-    throw new Error("useRepoContext must be used within a RepoProvider")
-  }
-  return context
-}
-
+export const useRepo = () => useContext(RepoContext);
