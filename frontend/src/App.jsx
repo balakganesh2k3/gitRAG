@@ -32,20 +32,25 @@ function App() {
     <ThemeProvider defaultTheme="light">
       <AuthProvider>
         <Router>
-          <Layout>
-            <Routes>
-              <Route path="/" element={<DashboardPage />} />
-              <Route path="/signup" element={<SignupPage />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/layout" element={<Layout />} />
-              <Route path="/repositories" element={<RepositoriesPage />} />
-              <Route path="/chatbot" element={<ChatbotPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-
-            </Routes>
-          </Layout>
+          <Routes>
+            <Route path="/signup" element={<SignupPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            
+            <Route path="/*" element={
+              <ProtectedRoute>
+                <Layout>
+                  <Routes>
+                    <Route path="/dashboard" element={<DashboardPage />} />
+                    <Route path="/repositories" element={<RepositoriesPage />} />
+                    <Route path="/chatbot" element={<ChatbotPage />} />
+                    <Route path="/settings" element={<SettingsPage />} />
+                  </Routes>
+                </Layout>
+              </ProtectedRoute>
+            } />
+          </Routes>
+          <Toaster />
         </Router>
-        <Toaster />
       </AuthProvider>
     </ThemeProvider>
   )

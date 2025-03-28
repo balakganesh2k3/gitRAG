@@ -1,49 +1,50 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useNavigate } from "react-router-dom"
-import { useAuth } from "../context/auth-context"
-import { Button } from "../ui/button"
-import { Input } from "../ui/input"
-import { Label } from "../ui/label"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../ui/card"
-import { GitFork, Lock } from "lucide-react"
-import { supabase } from "../../lib/supabase"
-
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/auth-context";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { GitFork, Lock } from "lucide-react";
 
 const LoginPage = () => {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState(null)
-  const navigate = useNavigate()
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
-  // Redirect if already logged in
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, login, loading } = useAuth();
+
   if (isAuthenticated) {
-    navigate("/")
-    return null
+    navigate("/dashboard");
+    return null;
   }
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setError(null)
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
+      const success = await login(email.trim(), password.trim());
 
-      if (error) throw error
-
-      navigate("/layout/dashboard")
+      if (success) {
+        navigate("/dashboard");
+      } else {
+        setError("Invalid email or password");
+      }
     } catch (error) {
-      setError(error.message)
+      setError(error.message || "An error occurred during login");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
+  };
+
+  if (loading) {
+    return <div>Loading...</div>;
   }
 
   return (
@@ -96,10 +97,10 @@ const LoginPage = () => {
             <Button className="w-full" type="submit" disabled={isLoading}>
               {isLoading ? "Logging in..." : "Login"}
             </Button>
-            <Button 
-              className="w-full" 
-              variant="outline" 
-              type="button" 
+            <Button
+              className="w-full"
+              variant="outline"
+              type="button"
               onClick={() => navigate("/signup")}
             >
               Sign Up
@@ -108,8 +109,7 @@ const LoginPage = () => {
         </form>
       </Card>
     </div>
-  )
-}
+  );
+};
 
-export default LoginPage
-
+export default LoginPage;
